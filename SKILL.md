@@ -161,6 +161,10 @@ If `--site` is omitted the first entry in the library is used. If the hint is am
 - `firewall-ordering` requires both `--from-zone` and `--to-zone`. Run `firewall-zones` first to list zone IDs. The API returns the ordered policy IDs for traffic flowing from the source zone to the destination zone.
 - `sdwan-config` and `sdwan-status` require `--id`. Run `sdwan` first to list configs and get an ID. These return empty on accounts without SD-WAN configured.
 
+## Source & contributing
+
+Source code, issue tracker, and contributions: [github.com/arseni-mik/open_claw-unifi-skill](https://github.com/arseni-mik/open_claw-unifi-skill/tree/main)
+
 ## Constraints
 
 - All operations are GET-only. Never suggest using this skill to make changes.
