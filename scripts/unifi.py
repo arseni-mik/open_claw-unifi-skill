@@ -33,7 +33,7 @@ from pathlib import Path
 
 API_KEY          = os.environ.get("UNIFI_API_KEY", "")
 SM_BASE          = "https://api.ui.com"
-CACHE_FILE       = Path.home() / ".unifi-skill.json"
+CACHE_FILE       = Path.home() / ".openclaw" / "unifi-skill.json"
 CACHE_TTL        = 900  # 15 minutes
 
 

@@ -107,7 +107,7 @@ On every invocation the skill builds a site library by joining:
 - `GET /v1/hosts` — host names (user-set), hardware model, connection state, `apiIntegration` flag
 - `GET /v1/sites` — `siteId` per `hostId`
 
-Labels come directly from the name the user set in the UniFi UI — e.g. "HQ" → `hq`, "Branch Office" → `branch-office`, "Remote Site" → `remote-site`. The library is cached in `~/.unifi-skill.json` for 15 minutes to avoid redundant API calls.
+Labels come directly from the name the user set in the UniFi UI — e.g. "HQ" → `hq`, "Branch Office" → `branch-office`, "Remote Site" → `remote-site`. The library is cached in `~/.openclaw/unifi-skill.json` for 15 minutes to avoid redundant API calls.
 
 Hosts without Network API support (e.g. a NAS device with `apiIntegration: false`) are included in the library but will return a clear error if targeted with NET subcommands.
 
