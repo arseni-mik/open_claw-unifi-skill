@@ -1,6 +1,13 @@
-# OpenClaw UniFi Skill
+# UniFi Network Advisor — OpenClaw Skill & MCP Server
 
-A read-only [OpenClaw](https://openclaw.ai) skill that lets your AI assistant query your UniFi network and give advice on devices, clients, firewall configuration, VPN tunnels, ISP performance, and more — GET-only, no writes of any kind.
+A read-only tool that lets your AI assistant query your UniFi network and give advice on devices, clients, firewall configuration, VPN tunnels, ISP performance, and more — GET-only, no writes of any kind.
+
+Ships two ways, both backed by the same `scripts/unifi.py` logic:
+
+- **[OpenClaw](https://openclaw.ai) skill** (`SKILL.md` + `scripts/unifi.py`) — OpenClaw runs the script directly as a subprocess.
+- **MCP server** (`unifi-mcp`) — a standard stdio MCP server for Claude Code, OpenClaw, or any other MCP client. See [MCP Server](#mcp-server) below.
+
+The two are independent — install either one, or both side by side.
 
 ## What it does
 
@@ -23,9 +30,13 @@ Covers two official UniFi API surfaces:
 
 ```
 open_claw-unifi-skill/
-├── SKILL.md           # Skill definition and agent instructions
-└── scripts/
-    └── unifi.py       # Query script
+├── SKILL.md            # Skill definition and agent instructions (OpenClaw)
+├── scripts/
+│   └── unifi.py        # Query script — single source of truth for auth/HTTP/site logic
+├── pyproject.toml       # unifi-mcp package metadata
+└── src/unifi_mcp/
+    ├── cli.py          # Subprocess adapter over scripts/unifi.py
+    └── server.py       # MCP server: 19 tools wrapping the script's 44 subcommands
 ```
 
 ## Requirements
@@ -80,6 +91,71 @@ python3 scripts/unifi.py devices --site hq            # adopted devices on a spe
 python3 scripts/unifi.py clients --limit 20           # connected clients
 python3 scripts/unifi.py firewall-policies            # firewall policies
 python3 scripts/unifi.py isp-metrics --metric-type 1h # ISP performance
+```
+
+## MCP Server
+
+The same `scripts/unifi.py` logic is also available as an MCP server (`unifi-mcp`), for Claude Code or any other MCP client — not just OpenClaw. It shells out to `scripts/unifi.py` under the hood, so it shares the same `UNIFI_API_KEY` and the same site-library cache (`~/.openclaw/unifi-skill.json`).
+
+Rather than exposing all 44 subcommands as separate MCP tools (which would bloat every session's tool list), the script's subcommands are grouped into 19 tools that follow UniFi's own [developer.ui.com](https://developer.ui.com) API categories — e.g. all firewall endpoints (`firewall-zones`/`firewall-zone`/`firewall-policies`/`firewall-policy`/`firewall-ordering`) become a single `unifi_net_firewall` tool with a `resource` parameter, list-vs-details is controlled by an optional `id` parameter, and so on.
+
+Since v0.2.0 the server also post-processes responses for LLM consumption:
+
+- **Compact-by-default Site Manager output** — raw console objects are ~13 KB each; `unifi_sm_hosts`/`unifi_sm_devices` return curated summaries (~30x smaller) with a `full=true` escape hatch for the raw objects.
+- **`query=` search** on `unifi_net_clients`, `unifi_net_devices`, and `unifi_sm_devices` — case-insensitive substring match on name/IP/MAC/model, filtered server-side instead of dumping full lists into context.
+- **`unifi_health_summary`** — one call composing console states, WAN/internet-issue flags, per-site device totals, offline devices, and pending firmware updates.
+- Compact JSON everywhere (no indentation) and a validated `unifi_sm_isp_metrics` parameter combo (the API only accepts `1h`+`7d/30d` or `5m`+`24h`).
+
+| MCP tool | Covers |
+|---|---|
+| `unifi_library` | `library` |
+| `unifi_sm_hosts` | `hosts`, `host` |
+| `unifi_sm_sites` | `sites` |
+| `unifi_sm_devices` | `cloud-devices` |
+| `unifi_sm_isp_metrics` | `isp-metrics` |
+| `unifi_sm_sdwan` | `sdwan`, `sdwan-config`, `sdwan-status` |
+| `unifi_net_info` | `info` |
+| `unifi_net_sites` | `net-sites` |
+| `unifi_net_devices` | `devices`, `device`, `device-stats`, `devices-pending` |
+| `unifi_net_clients` | `clients`, `client` |
+| `unifi_net_networks` | `networks`, `network`, `network-refs` |
+| `unifi_net_wifi` | `wifi`, `wifi-details` |
+| `unifi_net_hotspot` | `vouchers`, `voucher` |
+| `unifi_net_firewall` | `firewall-zones`, `firewall-zone`, `firewall-policies`, `firewall-policy`, `firewall-ordering` |
+| `unifi_net_acl` | `acl-rules`, `acl-rule`, `acl-ordering` |
+| `unifi_net_dns` | `dns-policies`, `dns-policy` |
+| `unifi_net_traffic` | `traffic-lists`, `traffic-list` |
+| `unifi_net_supporting` | `wans`, `vpn-tunnels`, `vpn-servers`, `radius`, `device-tags`, `dpi-categories`, `dpi-applications`, `countries` |
+
+UniFi's docs also list a "Switching" API category — there's no corresponding subcommand in `scripts/unifi.py` yet, so there's no `unifi_net_switching` tool either. Would need new subcommands added to the script first.
+
+### Sanity check
+
+```bash
+cd open_claw-unifi-skill
+uv run unifi-mcp   # starts on stdio, Ctrl+C to stop — confirms install + UNIFI_API_KEY are good
+```
+
+### Claude Code
+
+```bash
+# Reads UNIFI_API_KEY from your shell env via ${} expansion — never stored in plaintext:
+claude mcp add unifi --scope user -e UNIFI_API_KEY='${UNIFI_API_KEY}' -- uvx --from /path/to/open_claw-unifi-skill unifi-mcp
+```
+
+### OpenClaw
+
+Register it as an MCP server the same way as any other (see your OpenClaw `mcp.servers` config):
+
+```json
+"unifi": {
+  "command": "uvx",
+  "args": ["--from", "/path/to/open_claw-unifi-skill", "unifi-mcp"],
+  "env": { "UNIFI_API_KEY": "your-api-key-here" }
+}
+```
+
+Then add `unifi` to whichever agent(s) should have UniFi access. This works alongside the `unifi-advisor` skill above — you don't need to remove one to use the other.
 ```
 
 ## All subcommands

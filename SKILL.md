@@ -165,6 +165,8 @@ If `--site` is omitted the first entry in the library is used. If the hint is am
 
 Source code, issue tracker, and contributions: [github.com/arseni-mik/open_claw-unifi-skill](https://github.com/arseni-mik/open_claw-unifi-skill/tree/main)
 
+This same repository also ships an MCP server (`unifi-mcp`) covering the same data, for use with Claude Code, OpenClaw, or any other MCP client — see the README's "MCP Server" section. The two are independent; this skill's behavior is unaffected either way.
+
 ## Constraints
 
 - All operations are GET-only. Never suggest using this skill to make changes.
